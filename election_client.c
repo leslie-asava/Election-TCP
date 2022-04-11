@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#define MAX 80
+#define MAX 300
 #define PORT 8080
 #define SA struct sockaddr
 
@@ -19,25 +19,296 @@
 	#define CLEAR_COMMAND "clear"	// Other OS
 # endif
 
+char *remove_new_line(char *strbuffer)
+{
+	size_t len = strlen(strbuffer);
+	if (strbuffer[len - 1] == '\n')
+	{
+		strbuffer[len - 1] = '\0';
+	}
+
+	return strbuffer;
+}
+
+
+
+void vote_position(char position[30])
+{
+	printf("\n\t\t<<< Position: %s >>>\n\n\t\tCandidates\n", position);
+
+	char position_title[30];
+	strcpy(position_title, position);
+	// Prepare path
+	char path[20] = "candidates/";
+	char extension[] = ".txt";
+	strcat(position, extension);
+	strcat(path, position);
+
+	// Set up file details
+	FILE * candfileptr;
+	candfileptr = fopen(path, "r");
+
+	char read_name[30];
+	int line_number = 1;
+
+	while (fgets(read_name, sizeof(read_name), candfileptr))
+	{
+		printf("\n\t\t%d. %s", line_number, remove_new_line(read_name));
+		line_number++;
+	}
+
+	fclose(candfileptr);
+
+	// Vote confirmation variables
+	char confirm[1];
+	char read_id[30] = { "0" };
+	int candidate_selection;
+
+	while (true)
+	{
+		printf("\n\n\t\t[#] Your selection: ");
+		scanf("%s", read_id);
+
+		if (atoi(read_id) > get_number_of_candidates(path))
+		{
+			continue;
+		}
+
+		printf("\n\t\tYour %s selection: ", position_title);
+		print_candidate_on_line(atoi(read_id), path);
+
+		printf("\n\n\t\t[--] Confirm[y/n]: ");
+		scanf("%s", confirm);
+
+		if (!strcmp(confirm, "n"))
+		{
+			continue;
+		}
+		else
+		{
+			// Change path to votes
+			strcpy(path, "votes/");
+
+			strcat(path, position);
+
+			// Set up file details
+			FILE * votesfileptr;
+			votesfileptr = fopen(path, "a");
+
+			strcat(read_id, "\n");
+
+			// Append Candidate ID to file
+			fprintf(votesfileptr, read_id);
+
+			fclose(votesfileptr);
+			system(CLEAR_COMMAND);
+			break;
+		}
+	}
+}
+
+int get_number_of_candidates(char path[30])
+{
+	FILE * fileptr;
+	fileptr = fopen(path, "r");
+
+	char line_str[30];
+	int read_number = 0;
+
+	while (fgets(line_str, sizeof(line_str), fileptr))
+	{
+		read_number++;
+	}
+
+	fclose(fileptr);
+
+	return read_number;
+}
+
+void print_candidate_on_line(int line_number, char path[30])
+{
+	FILE * fileptr;
+	fileptr = fopen(path, "r");
+
+	char line_str[30];
+	int read_number = 1;
+
+	while (fgets(line_str, sizeof(line_str), fileptr))
+	{
+		if (read_number == line_number)
+		{
+			printf("%s", remove_new_line(line_str));
+		}
+
+		read_number++;
+	}
+
+	fclose(fileptr);
+}
+
+void vote_for_candidates(int sockfd)
+{
+	char regInput[20];
+	char buff[MAX];
+	char input_name[20];
+	char input_pass[20];
+	// Authenticate voter
+	printf("Enter your registration number: ");
+	scanf("%s", regInput);
+
+	strcpy(buff, regInput);
+	write(sockfd, buff, sizeof(buff));
+	printf("%s",buff);
+	bzero(buff, sizeof(buff));
+	read(sockfd, buff, sizeof(buff));
+	printf("%s",buff);
+
+	bool authenticated = false;
+
+	if (!authenticated)
+	{
+
+		printf("\n\t\tVOTER AUTHENTICATION\n\t\tThis should take a second :)\n");
+		printf("\n\t[--] Your name: ");
+		scanf("%s", input_name);
+
+		strcpy(buff, input_name);
+		write(sockfd, buff, sizeof(buff));
+		bzero(buff, sizeof(buff));
+		read(sockfd, buff, sizeof(buff));
+
+		printf("\t[--] Your passphrase: ");
+		scanf("%s", input_pass);
+
+		strcpy(buff, input_name);
+		write(sockfd, buff, sizeof(buff));
+		bzero(buff, sizeof(buff));
+		read(sockfd, buff, sizeof(buff));
+
+		printf("%s", buff);
+
+	}
+
+	// Iterate positions
+	char position_titles[10][50] = { "Chairperson",
+		"Vice Chair",
+		"Secretary General",
+		"Secretary Finance",
+		"Organizing Secretary",
+		"Secretary Academic Affairs",
+		"Secretary Catering and Accommodation",
+		"Secretary Health and Environment",
+		"Secretary Sports and Entertainment",
+		"Secretary Legal Affairs" };
+	int positions = 10;
+
+	int i;
+
+	printf("\n\t\tVOTING\n\t\tMake your best selections\n");
+	for (i = 0; i < positions; i++)
+	{
+		// Display candidates to choose from
+		vote_position(position_titles[i]);
+	}
+}
+
+
+
+void registerVoter(int sockfd)
+{
+    int choice;
+    char name[100];
+    char pwd_comp[30];
+    char file_path[100] = "";
+    char dir[] = "voters/";
+    int cmp;
+	char buff[MAX];
+ 
+    printf("\tVOTER REGISTRATION\n");
+    printf("\nFIRST NAME : ");
+    scanf("%s", info.fname);
+
+	strcpy(buff, info.fname);
+	write(sockfd, buff, sizeof(buff));
+	bzero(buff, sizeof(buff));
+	read(sockfd, buff, sizeof(buff));
+
+    printf("\nLAST NAME : ");
+    scanf("%s", info.lname);
+
+	strcpy(buff, info.lname);
+	write(sockfd, buff, sizeof(buff));
+	bzero(buff, sizeof(buff));
+	read(sockfd, buff, sizeof(buff));
+
+    printf("\nDO NOT USE '/' IN YOUR REG NO\nREGISTRATION NUMBER : ");
+    scanf("%s", info.reg_no);
+
+	strcpy(buff, info.reg_no);
+	write(sockfd, buff, sizeof(buff));
+	bzero(buff, sizeof(buff));
+	read(sockfd, buff, sizeof(buff));
+ 
+ 
+    int loc_file = atoi(buff);
+    if( loc_file == 0)
+    {
+        printf("\nPASSWORD : ");
+        scanf("%s", info.password);
+
+		strcpy(buff, info.password);
+		write(sockfd, buff, sizeof(buff));
+		bzero(buff, sizeof(buff));
+		read(sockfd, buff, sizeof(buff));
+
+        printf("\nCONFIRM PASSWORD : ");
+        scanf("%s", pwd_comp);
+
+		strcpy(buff, pwd_comp);
+		write(sockfd, buff, sizeof(buff));
+		bzero(buff, sizeof(buff));
+		read(sockfd, buff, sizeof(buff));
+
+		strcpy(buff, "ACCEPT");
+		write(sockfd, buff, sizeof(buff));
+		bzero(buff, sizeof(buff));
+		read(sockfd, buff, sizeof(buff));
+		printf("%s", buff);
+       
+    }
+    else if(loc_file == -1)
+    {
+        //printf("account already exist !!!!\n");
+		strcpy(buff, "ACCEPT");
+		write(sockfd, buff, sizeof(buff));
+		bzero(buff, sizeof(buff));
+		read(sockfd, buff, sizeof(buff));
+		printf("%s", buff);
+    }
+ 
+}
+
 int tally_votes(int sockfd)
 {
 	char buff[MAX];
 	printf("\n\t\t\tTALLYING\n\t\tThis will take a second");
 
-	strcpy(buff, "READY");
+	strcpy(buff, "READY\n");
 	write(sockfd, buff, sizeof(buff));
 	bzero(buff, sizeof(buff));
 	read(sockfd, buff, sizeof(buff));
 	printf("%s",buff);
 
 	while (strncmp("exit", buff, sizeof(buff)) != 0) {
-			strcpy(buff, "READY");
-			write(sockfd, buff, sizeof(buff));
-			bzero(buff, sizeof(buff));
-			read(sockfd, buff, sizeof(buff));
 
-			printf("%s",buff);
-		}
+		int i = 0;
+		strcpy(buff, "READY");
+		write(sockfd, buff, sizeof(buff));
+		bzero(buff, sizeof(buff));
+		read(sockfd, buff, sizeof(buff));
+
+		printf("%s\n",buff);
+	}
 
 }
 
@@ -159,17 +430,18 @@ void func(int sockfd)
 
         else if (atoi(buff) == 2)
         {
-            tally_votes(sockfd);
+            registerVoter(sockfd);
         }
 
         else if (atoi(buff) == 3)
         {
-            printf("%s\n", "vote");
+            vote_for_candidates(sockfd);
         }
 
         else if (atoi(buff) == 4)
         {
-            printf("%s\n", "tally");
+            tally_votes(sockfd);
+			
         }
 
 		if ((strncmp(buff, "exit", 4)) == 0) {
